@@ -9,16 +9,22 @@ import Foundation
 import os.log
 import Network
 
-/// App --> Provider IPC
-@objc protocol ProviderCommunication {
+enum ActiveBrowserExtensios: String {
+    case safari
+    case chrome
+}
+
+/// App --> Provider IPC, to be implememted in Extension
+@objc protocol AppToExtensionExtension {
     func register(_ completionHandler: @escaping (Bool) -> Void)
     func setBlockedURLs(_ urls: [String])
     func setBlockedIPAddresses(_ ips: [String])
+    // Use Objective-C bridgeable type for XPC surface
+    func setActiveBrowserExtension(_ extensionTypeRawValue: String, state: Bool)
 }
 
-/// Provider --> App IPC
-@objc protocol AppCommunication {
-  
+/// Provider --> App IPC to Be implememted in the app
+@objc protocol ExtensionToApp {
   func promptUser(aboutFlow flowInfo: [String: String], responseHandler: @escaping (Bool) -> Void)
     func didSetUrls()
 }
@@ -35,13 +41,16 @@ class IPCConnection: NSObject {
   
   var listener: NSXPCListener?
   var currentConnection: NSXPCConnection?
-  weak var delegate: AppCommunication?
+  weak var delegate: ExtensionToApp?
   static let shared = IPCConnection()
 //    var blockedUrls: [String] = ProxyPreferences.getBlockedDomains()
     var blockedUrls: [String] = [String]()
     var blockedList = BlockOrAllowList(items: [])
     var blockedIPAddresses: Set<String> = []
-
+    private(set) var isSafariExtensionEnable: Bool = false
+    private(set) var isGoogleChromeEnabled: Bool = false
+    // Published extension state for UI/observers
+    
   // MARK: Methods
   
   /**
@@ -53,7 +62,9 @@ class IPCConnection: NSObject {
     
     guard let networkExtensionKeys = bundle.object(forInfoDictionaryKey: "NetworkExtension") as? [String: Any],
           let machServiceName = networkExtensionKeys["NEMachServiceName"] as? String else {
-      fatalError("Mach service name is missing from the Info.plist")
+//      fatalError("Mach service name is missing from the Info.plist")
+        os_log("[SC] 🔍] Mach service name is missing from the Info.plist")
+        return ""
     }
     
     return machServiceName
@@ -71,7 +82,7 @@ class IPCConnection: NSObject {
   }
   
   /// This method is called by the app to register with the provider running in the system extension.
-  func register(withExtension bundle: Bundle, delegate: AppCommunication, completionHandler: @escaping (Bool) -> Void) {
+  func register(withExtension bundle: Bundle, delegate: ExtensionToApp, completionHandler: @escaping (Bool) -> Void) {
     
     self.delegate = delegate
     
@@ -85,11 +96,11 @@ class IPCConnection: NSObject {
     let newConnection = NSXPCConnection(machServiceName: machServiceName, options: [])
     
     // The exported object is the delegate.
-    newConnection.exportedInterface = NSXPCInterface(with: AppCommunication.self)
+    newConnection.exportedInterface = NSXPCInterface(with: ExtensionToApp.self)
     newConnection.exportedObject = delegate
     
     // The remote object is the provider's IPCConnection instance.
-    newConnection.remoteObjectInterface = NSXPCInterface(with: ProviderCommunication.self)
+    newConnection.remoteObjectInterface = NSXPCInterface(with: AppToExtensionExtension.self)
     
     currentConnection = newConnection
     newConnection.resume()
@@ -99,8 +110,9 @@ class IPCConnection: NSObject {
       self.currentConnection?.invalidate()
       self.currentConnection = nil
       completionHandler(false)
-    }) as? ProviderCommunication else {
-      fatalError("Failed to create a remote object proxy for the provider")
+    }) as? AppToExtensionExtension else {
+        os_log("Failed to create a remote object proxy for the provider")
+        return
     }
     providerProxy.register(completionHandler)
 //      providerProxy.setBlockedURLs(blockedUrls)
@@ -118,11 +130,12 @@ class IPCConnection: NSObject {
       }
     
     guard let appProxy = connection.remoteObjectProxyWithErrorHandler({ promptError in
-      os_log("[SC] 🔍] Failed to prompt the user: %@", promptError.localizedDescription)
+      os_log("[SC] 🔍] Failed to prompt the user: %{public}@", promptError.localizedDescription)
       self.currentConnection = nil
       responseHandler(true)
-    }) as? AppCommunication else {
-      fatalError("Failed to create a remote object proxy for the app")
+    }) as? ExtensionToApp else {
+        os_log("Failed to create a remote object proxy for the app")
+        return false
     }
     
     appProxy.promptUser(aboutFlow: flowInfo, responseHandler: responseHandler)
@@ -138,11 +151,11 @@ extension IPCConnection: NSXPCListenerDelegate {
   func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
     
     // The exported object is this IPCConnection instance.
-    newConnection.exportedInterface = NSXPCInterface(with: ProviderCommunication.self)
+    newConnection.exportedInterface = NSXPCInterface(with: AppToExtensionExtension.self)
     newConnection.exportedObject = self
     
     // The remote object is the delegate of the app's IPCConnection instance.
-    newConnection.remoteObjectInterface = NSXPCInterface(with: AppCommunication.self)
+    newConnection.remoteObjectInterface = NSXPCInterface(with: ExtensionToApp.self)
     
     newConnection.invalidationHandler = {
       self.currentConnection = nil
@@ -162,8 +175,9 @@ extension IPCConnection: NSXPCListenerDelegate {
         os_log("[SC] 🔍] Enabling URL blocking")
         guard let providerProxy = currentConnection?.remoteObjectProxyWithErrorHandler({ registerError in
           os_log("[SC] 🔍] Failed to register with the provider: %@", registerError.localizedDescription)
-        }) as? ProviderCommunication else {
-          fatalError("Failed to create a remote object proxy for the provider")
+        }) as? AppToExtensionExtension else {
+            os_log("[SC] 🔍] Failed to create a remote object proxy for the provider")
+            return
         }
         providerProxy.setBlockedURLs(urls)
     }
@@ -172,15 +186,28 @@ extension IPCConnection: NSXPCListenerDelegate {
         os_log("[SC] 🔍] Enabling URL blocking")
         guard let providerProxy = currentConnection?.remoteObjectProxyWithErrorHandler({ registerError in
           os_log("[SC] 🔍] Failed to register with the provider: %@", registerError.localizedDescription)
-        }) as? ProviderCommunication else {
-          fatalError("Failed to create a remote object proxy for the provider")
+        }) as? AppToExtensionExtension else {
+            os_log("[SC] 🔍] Failed to create a remote object proxy for the provider")
+            return
         }
         providerProxy.setBlockedIPAddresses(urls)
+    }
+    
+    func sendMessageToSetActiveBrowserExtension(_ extensionTypeRawValue: String, state: Bool) -> Bool {
+        os_log("[SC] 🔍] sendMessageToSetActiveBrowserExtension:\(extensionTypeRawValue), state:\(state)")
+        guard let providerProxy = currentConnection?.remoteObjectProxyWithErrorHandler({ registerError in
+          os_log("[SC] 🔍] sendMessageToSetActiveBrowserExtension: %@", registerError.localizedDescription)
+        }) as? AppToExtensionExtension else {
+            os_log("[SC] 🔍] Failed to create a remote object proxy for the provider")
+            return false
+        }
+        providerProxy.setActiveBrowserExtension(extensionTypeRawValue, state: state)
+        return true
     }
 }
 
 
-extension IPCConnection: ProviderCommunication {
+extension IPCConnection: AppToExtensionExtension {
     
     func setBlockedIPAddresses(_ ips: [String]) {
         blockedIPAddresses = Set(ips)
@@ -188,26 +215,47 @@ extension IPCConnection: ProviderCommunication {
     }
     
     func setBlockedURLs(_ urls: [String]) {
-        os_log("[SC] 🔍] Blocking: %{public}@",urls)
+        os_log("[SC] 🔍] Extension Received Blocking: %{public}@",urls)
         blockedUrls = urls
 //        delegate?.didSetUrls()
         blockedList = BlockOrAllowList(items: blockedUrls)
 
           guard let connection = currentConnection else {
               print("[SC] 🔍] Cannot update blocked urls, app isn't registered")
+              os_log("[SC] 🔍] Cannot update blocked urls, app isn't registered")
+
               return
           }
         
         guard let appProxy = connection.remoteObjectProxyWithErrorHandler({ promptError in
-          os_log("[SC] 🔍] Failed to prompt the user: %@", promptError.localizedDescription)
+          os_log("[SC] 🔍] Failed to prompt the user: %{public}@", promptError.localizedDescription)
+            os_log("Failed to create a remote object proxy for the app")
 //          self.currentConnection = nil
 //          responseHandler(true)
-        }) as? AppCommunication else {
-          fatalError("Failed to create a remote object proxy for the app")
+        }) as? ExtensionToApp else {
+            os_log("[SC] 🔍] Cannot update blocked urls, app isn't registered")
+            os_log("Failed to create a remote object proxy for the app")
+            return
         }
         appProxy.didSetUrls()
     }
     
+    func setActiveBrowserExtension(_ extensionTypeRawValue: String, state: Bool) {
+        // Map the raw value to the Swift enum if possible
+        os_log("[SC] 🔍] Received extension state to %{public}@", extensionTypeRawValue)
+        if let mapped = ActiveBrowserExtensios(rawValue: extensionTypeRawValue) {
+            switch mapped {
+            case .safari:
+                self.isSafariExtensionEnable = state
+            case .chrome:
+                self.isGoogleChromeEnabled = state
+            }
+            os_log("[SC] 🔍] Set browser extension state to %{public}@", extensionTypeRawValue)
+            os_log("[SC] 🔍] Set browser state to %{public}d", state)
+        } else {
+            os_log("[SC] 🔍] Unknown browser extension type %{public}@", extensionTypeRawValue)
+        }
+    }
   
   // MARK: ProviderCommunication
   

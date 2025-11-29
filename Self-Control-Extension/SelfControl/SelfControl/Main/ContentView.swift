@@ -64,6 +64,8 @@ struct ContentView: View {
 //            Text("Enable Url Blocking")
 //        }
         SafariExtensionView()
+        SafariExtensionWebView()
+            .frame(minHeight: 100)
     }
     .padding()
     .frame(minWidth: 150, minHeight: 150)

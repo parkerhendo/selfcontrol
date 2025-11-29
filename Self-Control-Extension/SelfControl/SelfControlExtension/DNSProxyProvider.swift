@@ -77,7 +77,7 @@ class DNSProxyProvider: NEDNSProxyProvider {
 
                 guard offset + length <= data.count else {
                     NSLog("Incomplete DNS message")
-                    os_log("SC] 🔍 Incomplete DNS message")
+                    os_log("[SC] 🔍 Incomplete DNS message")
                     break
                 }
 

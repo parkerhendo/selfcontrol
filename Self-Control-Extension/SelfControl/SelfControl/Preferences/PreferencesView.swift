@@ -41,6 +41,7 @@ struct PreferencesView: View {
             Button("Save Preferences") {
                 ProxyPreferences.setBlockedDomains(domains)
                 viewModel.setBlockedUrls(urls: domains)
+                BlockListViewModel().updateBlocker()
             }
         }
         .padding()

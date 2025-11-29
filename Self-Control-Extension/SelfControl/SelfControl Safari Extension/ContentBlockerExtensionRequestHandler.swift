@@ -89,4 +89,65 @@ public enum ContentBlockerExtensionRequestHandler {
             userInfo: [NSLocalizedDescriptionKey: message]
         )
     }
+    
+    public static func handleRequestList(groupIdentifier: String) -> [BlockRule]? {
+        os_log(.info, "[SC] 🔍] Safari Start loading the content blocker")
+        
+        // Get the shared container URL using the provided group identifier
+        guard
+            let appGroupURL = FileManager.default.containerURL(
+                forSecurityApplicationGroupIdentifier: groupIdentifier
+            )
+        else {
+            return nil
+        }
+        
+        // Construct the path to the shared blocker list file
+        let sharedFileURL = appGroupURL.appendingPathComponent(Constants.SAFARI_BLOCKER_FILE_NAME)
+        
+        // Determine which blocker list file to use
+        var blockerListFileURL = sharedFileURL
+        if !FileManager.default.fileExists(atPath: sharedFileURL.path) {
+            os_log(.info, "[SC] 🔍] Safari No blocker list file found. Using the default one.")
+            
+            // Fall back to the default blocker list included in the bundle
+            guard
+                let defaultURL = Bundle.main.url(forResource: "blockerList", withExtension: "json")
+            else {
+                return nil
+            }
+            blockerListFileURL = defaultURL
+        }
+        
+        func handleBlockList(_ jsonData: Data) -> [BlockRule]? {
+            do {
+                let decoder = JSONDecoder()
+                let rules = try decoder.decode([BlockRule].self, from: jsonData)
+                NSLog("[SC] 🔍] Received Blocked URLs: \(rules)")
+                return rules
+            } catch {
+                NSLog("[SC] 🔍] Failed to decode block list: \(error)")
+            }
+            return nil
+        }
+        return handleBlockList(try! Data(contentsOf: blockerListFileURL))
+    }
+}
+
+
+public struct BlockRule: Codable {
+    struct Trigger: Codable {
+        let urlFilter: String
+
+        enum CodingKeys: String, CodingKey {
+            case urlFilter = "url-filter"
+        }
+    }
+
+    struct Action: Codable {
+        let type: String
+    }
+
+    let trigger: Trigger
+    let action: Action
 }

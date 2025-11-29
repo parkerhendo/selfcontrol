@@ -10,13 +10,19 @@ import NetworkExtension
 import SystemExtensions
 import os.log
 import Cocoa
+import Combine
+import SafariServices
 
-final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionRequestDelegate, AppCommunication {
+final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionRequestDelegate, ExtensionToApp {
     @Published var status: Status = .stopped
     @State private var domains = ProxyPreferences.getBlockedDomains()
-    private let listner = PlistListner()
+    private let listner = ChromeExtensionRequestListner()
     @Published var delay: Double = 0.0
     var blockedIPAddressed: [String] = []
+    private var cancellables = Set<AnyCancellable>()
+    
+    // Safari extension identifier used to query state
+    private let safariExtensionIdentifier = "com.application.SelfControl.corebits.SelfControl-Safari-Extension"
     
   // Date formatter used to log entries
   lazy var dateFormatter: DateFormatter = {
@@ -57,6 +63,17 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
             return ProxyPreferences.getBlockedDomains()
         }
         self.listner.startListening()
+        
+        // Print status whenever it changes
+        $status
+            .sink { [weak self] newValue in
+                guard let self = self else { return }
+                print("[FilterViewModel] status changed to: \(newValue) (\(newValue.text))")
+                os_log("[SC] 🔍] status changed to: %{public}@ (%{public}@)", String(describing: newValue), newValue.text)
+                // Keep extension state in sync when status changes
+                self.refreshExtensionState()
+            }
+            .store(in: &cancellables)
     }
   
   deinit {
@@ -70,6 +87,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     loadFilterConfiguration { success in
       guard success else {
         self.status = .stopped
+        self.refreshExtensionState()
         return
       }
       self.updateStatus()
@@ -77,8 +95,24 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
                                                              object: NEFilterManager.shared(),
                                                              queue: .main) { [weak self] _ in
         self?.updateStatus()
+        self?.refreshExtensionState()
       }
+      // Initial state refresh
+      self.refreshExtensionState()
     }
+  }
+  
+  // MARK: - NetworkExtensionStateProviding
+
+    func refreshExtensionState() {
+      let isNEEnabled = NEFilterManager.shared().isEnabled
+      Task { @MainActor in
+          NetworkExtensionState.shared.isEnabled = isNEEnabled
+          if isNEEnabled == true { //Reset 
+              NetworkExtensionState.shared.isSafariExtensionEnabled = false
+              NetworkExtensionState.shared.isChromeExtensionEnabled = false
+          }
+      }       // We’ll query Safari extension state asynchronously for accuracy.
   }
   
   // MARK: - UI and Filter Management
@@ -90,6 +124,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
             print("Resolved app:\(ips)")
             setIPAddressesToBlock(addresses: Array(ips))
         }
+        // State might change due to Safari integration
     }
 
     func setIPAddressesToBlock(addresses: [String]) {
@@ -108,6 +143,8 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     } else {
       status = .stopped
     }
+    // Keep extension state refreshed
+    refreshExtensionState()
   }
   
   func logFlow(_ flowInfo: [String: String], at date: Date, userAllowed: Bool) {
@@ -142,6 +179,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     loadFilterConfiguration { success in
       guard success else {
         self.status = .stopped
+        self.refreshExtensionState()
         return
       }
       if filterManager.providerConfiguration == nil {
@@ -159,9 +197,10 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
           if let error = saveError {
             os_log("[SC] 🔍] Failed to save the filter configuration: %@", error.localizedDescription)
             self.status = .stopped
+            self.refreshExtensionState()
             return
           } else {
-//              self.enableDNSProxy()
+              self.enableDNSProxy()
           }
           self.registerWithProvider()
         }
@@ -199,6 +238,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
       DispatchQueue.main.async {
         self.status = success ? .running : .stopped
           self.setBlockedUrls(urls: ProxyPreferences.getBlockedDomains())
+          self.refreshExtensionState()
       }
 //        setBlockedURLs([])
     }
@@ -208,6 +248,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
         // Start by activating the system extension.
         guard let extensionIdentifier = extensionIdentifier else {
             self.status = .stopped
+            self.refreshExtensionState()
             return
           }
 //        let request = OSSystemExtensionRequest.propertiesRequest(forExtensionWithIdentifier: extensionIdentifier, queue: .main)
@@ -245,11 +286,13 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     status = .indeterminate
     guard filterManager.isEnabled else {
       status = .stopped
+      refreshExtensionState()
       return
     }
     loadFilterConfiguration { success in
       guard success else {
         self.status = .running
+        self.refreshExtensionState()
         return
       }
       // Disable the content filter configuration.
@@ -259,9 +302,11 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
           if let error = saveError {
             os_log("[SC] 🔍] Failed to disable the filter configuration: %@", error.localizedDescription)
             self.status = .running
+            self.refreshExtensionState()
             return
           }
           self.status = .stopped
+          self.refreshExtensionState()
         }
       }
     }
@@ -272,6 +317,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     guard result == .completed else {
       os_log("[SC] 🔍] Unexpected result %d for system extension request", result.rawValue)
       status = .stopped
+      refreshExtensionState()
       return
     }
     enableFilterConfiguration()
@@ -280,6 +326,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
   func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
     os_log("[SC] 🔍] System extension request failed: %@", error.localizedDescription)
     status = .stopped
+    refreshExtensionState()
   }
   
   func requestNeedsUserApproval(_ request: OSSystemExtensionRequest) {
@@ -331,6 +378,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     
     func didSetUrls() {
         print("didSetUrls+++++")
+        // URLs updated; refresh extension state in case Safari side changed.
     }
 }
 

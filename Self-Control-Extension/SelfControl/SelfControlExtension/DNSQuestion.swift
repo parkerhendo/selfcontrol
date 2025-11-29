@@ -66,7 +66,7 @@ class DNSParser {
             }
             index += length + 1
         }
-        return (labels.joined(separator: "."), index)
+        return c(labels.joined(separator: "."), index)
     }
 }
 

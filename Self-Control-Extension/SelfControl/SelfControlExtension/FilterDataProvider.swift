@@ -185,7 +185,6 @@ class FilterDataProvider: NEFilterDataProvider {
 
             extOffset += extLen
         }
-
         return nil
     }
 
@@ -193,88 +192,114 @@ class FilterDataProvider: NEFilterDataProvider {
           from flow: NEFilterFlow,
           readBytesStartOffset offset: Int,
           readBytes data: Data
-      ) -> NEFilterDataVerdict {
-          
-          
-          let process = processFromflow(flow: flow)
-  //        os_log(" FilterDataProvider: appIdAndName %{public}@, %{public}@", log: OSLog.default, type: .debug, process?.name ?? "", process?.path ?? "")
-          os_log(" FilterDataProvider: app %{public}@", log: OSLog.default, type: .debug, process?.description ?? "")
-
-          if let process = process, AllowedProcess.isAllowedProcess(process) {
-              os_log("[SC] 🔍] FilterDataProvider: allowing as it is in allowed list.")
-              return .allow()
-          }
-        guard let socketFlow = flow as? NEFilterSocketFlow else {
-          os_log("[SC] 🔍] Not a socket flow. Allowing.", log: OSLog.default, type: .info)
-          return .allow()
-        }
-          if socketFlow.direction !=  .outbound {
-              os_log("[SC] 🔍] Not a inbound socket flow. Allowing.", log: OSLog.default, type: .info)
-              return .allow()
-          }
-          
-//          guard let socketFlow = flow as? NEFilterSocketFlow else {
-//              return .allow()
-//          }
-        let requestString = String(data: data, encoding: .utf8)
-          if let requestString {
-              os_log("[SC] 🔍] data HTTP Request: %{public}@", requestString)
-          }
-
-          // Try HTTP detection
-          if let requestString = requestString,
-             requestString.hasPrefix("GET ") || requestString.hasPrefix("POST ") {
-              
-              if let host = extractHost(from: requestString),
-                 let path = extractPath(from: requestString) {
-                  let urlString = "http://\(host)\(path)"
-                  os_log("[SC] 🔍] data HTTP Request: %{public}@", urlString)
-              }
-
-          } else if let sni = extractSNI(fromTLSData: data) {
-              os_log("[SC] 🔍] data TLS SNI Host: %{public}@", sni)
-              guard let hostDomain = TLDURLToDomain.getURLDomain(from: sni) else {
-                  return .allow()
-              }
-              os_log("[SC] 🔍] data hostDomain: %{public}@", hostDomain)
-
-              for url in IPCConnection.shared.blockedUrls {
-                  if url.contains(hostDomain) {
-                      os_log("[SC] 🔍] data  Blocking flow Host match SNI:%{public}@,  host:%{public}@", sni, hostDomain)
-                      return .drop()
-                  }
-              }
-          }
-
-          return .allow()
-      }
-
-    // Called for each new flow.
-    override func handleNewFlow(_ flow: NEFilterFlow) -> NEFilterNewFlowVerdict {
-        // Provide peek sizes required by this overload
-        return .filterDataVerdict(withFilterInbound: false,
-                                  peekInboundBytes: 0,
-                                  filterOutbound: true,
-                                  peekOutboundBytes: Int.max)
-
-      os_log("[SC] 🔍] FilterDataProvider: handleNewFlow invoked", log: OSLog.default, type: .debug)
-//        if let appID = flow.sourceAppIdentifier {
-//              print("App making the request: \(appID)")
-//          }
-//        let appIdAndName = SourceAppAuditTokenBuilder.getAppInfo(from: flow)
-//        os_log("[SC] 🔍] FilterDataProvider: appIdAndName %@, %@", log: OSLog.default, type: .debug, appIdAndName.appName ?? "", appIdAndName.bundleID ?? "")
+    ) -> NEFilterDataVerdict {
+        
         guard IPCConnection.shared.blockedUrls.count > 0 else { //No signinficant urls to block
             return .allow()
         }
-        
-        let process = processFromflow(flow: flow)
-//        os_log(" FilterDataProvider: appIdAndName %{public}@, %{public}@", log: OSLog.default, type: .debug, process?.name ?? "", process?.path ?? "")
-        os_log(" FilterDataProvider: app %{public}@", log: OSLog.default, type: .debug, process?.description ?? "")
 
-        if let process = process, AllowedProcess.isAllowedProcess(process) {
-            os_log("[SC] 🔍] FilterDataProvider: allowing as it is in allowed list.")
+        if RequestSourceAppValidator.isAllowedHost(flow: flow) {
             return .allow()
         }
+        
+        guard let socketFlow = flow as? NEFilterSocketFlow else {
+            os_log("[SC] 🔍] <handleOutboundData> Not a socket flow. Allowing.", log: OSLog.default, type: .info)
+            return .allow()
+        }
+        if socketFlow.direction !=  .outbound {
+            os_log("[SC] 🔍] <handleOutboundData> Not a inbound socket flow. Allowing.", log: OSLog.default, type: .info)
+            return .allow()
+        }
+        
+        //          guard let socketFlow = flow as? NEFilterSocketFlow else {
+        //              return .allow()
+        //          }
+        let requestString = String(data: data, encoding: .utf8)
+        if let requestString {
+            os_log("[SC] 🔍] <handleOutboundData> data HTTP Request: %{public}@", requestString)
+        }
+        
+        // Try HTTP detection
+        if let requestString = requestString,
+           requestString.hasPrefix("GET ") || requestString.hasPrefix("POST ") {
+            
+            if let host = extractHost(from: requestString),
+               let path = extractPath(from: requestString) {
+                let urlString = "http://\(host)\(path)"
+                os_log("[SC] 🔍] <handleOutboundData> data HTTP Request: %{public}@", urlString)
+            }
+            
+        } else if let sni = extractSNI(fromTLSData: data) {
+            os_log("[SC] 🔍] <handleOutboundData> data TLS SNI Host: %{public}@", sni)
+            guard let hostDomain = TLDURLToDomain.getURLDomain(from: sni) else {
+                return .allow()
+            }
+            os_log("[SC] 🔍] <handleOutboundData> data hostDomain: %{public}@", hostDomain)
+            
+            for url in IPCConnection.shared.blockedUrls {
+                if url.contains(hostDomain) {
+                    os_log("[SC] 🔍] <handleOutboundData> data  Blocking flow Host match SNI:%{public}@,  host:%{public}@", sni, hostDomain)
+                    return .drop()
+                }
+            }
+        }
+        
+        return .allow()
+    }
+
+    // Called for each new flow.
+    override func handleNewFlow(_ flow: NEFilterFlow) -> NEFilterNewFlowVerdict {
+
+        // Provide peek sizes required by this overload
+      os_log("[SC] 🔍] FilterDataProvider: handleNewFlow invoked", log: OSLog.default, type: .debug)
+        guard IPCConnection.shared.blockedUrls.count > 0 else { //No signinficant urls to block
+            return .allow()
+        }
+          
+        if RequestSourceAppValidator.isAllowedHost(flow: flow) {
+            return .allow()
+        }
+
+        guard let socketFlow = flow as? NEFilterSocketFlow else {
+            return .filterDataVerdict(withFilterInbound: false,
+                                      peekInboundBytes: 0,
+                                      filterOutbound: true,
+                                      peekOutboundBytes: Int.max)
+
+//            return .allow()
+        }
+
+        // Try to extract SNI hostname (HTTPS)
+        guard let hostname = socketFlow.remoteHostname else  {
+            return .filterDataVerdict(withFilterInbound: false,
+                                      peekInboundBytes: 0,
+                                      filterOutbound: true,
+                                      peekOutboundBytes: Int.max)
+        }
+
+        // Fallback to IP address if SNI is not present
+//        let remoteIP = (socketFlow.remoteEndpoint as? NWHostEndpoint)?.hostname ?? hostname
+
+//        let host = hostname.isEmpty ? remoteIP : hostname
+        let lower = hostname.lowercased()
+        os_log("[SC] 🔍] <handleNewFlow> Host SNI host:%{public}@", lower)
+        guard let hostDomain = TLDURLToDomain.getURLDomain(from: lower) else {
+            return .filterDataVerdict(withFilterInbound: false,
+                                      peekInboundBytes: 0,
+                                      filterOutbound: true,
+                                      peekOutboundBytes: Int.max)
+        }
+
+        for url in IPCConnection.shared.blockedUrls {
+            if url.contains(hostDomain) {
+                os_log("[SC] 🔍] <handleNewFlow> data  Blocking flow Host:%{public}@", hostDomain)
+                return .drop()
+            }
+        }
+
+        os_log("[SC] 🔍] Not a blocked domain. Allowing.", log: OSLog.default, type: .info)
+        return .allow()
+
       guard let socketFlow = flow as? NEFilterSocketFlow else {
         os_log("[SC] 🔍] Not a socket flow. Allowing.", log: OSLog.default, type: .info)
         return .allow()
@@ -308,12 +333,6 @@ class FilterDataProvider: NEFilterDataProvider {
     
         os_log("[SC] 🔍] Flow from remote endpoint: %{public}@, URL: %{public}@", log: OSLog.default, type: .debug, socketFlow.remoteEndpoint.debugDescription, flow.url?.description ?? "nil")
 
-      // Extract remote endpoint (if available).
-//      guard let remoteEndpoint = socketFlow.remoteEndpoint as? NWHostEndpoint else {
-//        os_log("[SC] 🔍] No valid remote endpoint. Allowing flow.", log: OSLog.default, type: .error)
-//        return .allow()
-//      }
-
         if remoteHost.isEmpty { //Unable to get host
             return .allow()
         }
@@ -340,34 +359,6 @@ class FilterDataProvider: NEFilterDataProvider {
                 return .drop()
             }
         }
-//        if var urlString = flow.url?.absoluteString {
-//            os_log("[SC] 🔍] Checking URL path: %{public}@", urlString)
-////            let blockedHosts = ["google.com/mail", "google.com/news", "facebook.com"]
-//            let blockedHosts = IPCConnection.shared.blockedUrls
-//            os_log("[SC] 🔍] BlockedList: %{public}@ checking:%{public}@",blockedHosts, urlString)
-//            if urlString.hasPrefix("www.") {
-//                let noWWW = String(urlString.dropFirst(4))
-//                urlString = noWWW
-//            }
-//
-//            for host in blockedHosts {
-//                if urlString.contains(host) {
-//                    os_log("[SC] 🔍] Blocking flow to handleNewFlow %{public}@", urlString)
-//                    return .drop()
-////                    return .allow()
-//                }
-////                flow.url?.host() == url
-//            }
-//        }
-  //      if blockedHosts.contains(flow.url?.path() ?? "") {
-  //                 os_log("Blocking flow to %@", remoteEndpoint.hostname)
-  //                 return .drop()
-  //             }
-      // Only process outbound traffic.
-//      if socketFlow.direction != .outbound {
-//        os_log("[SC] 🔍] Non-outbound traffic. Allowing.", log: OSLog.default, type: .info)
-//        return .allow()
-//      }
         
         return .allow()
       
@@ -515,17 +506,17 @@ class FilterDataProvider: NEFilterDataProvider {
       os_log("[SC] 🔍] Alert: User decision needed for flow %@", log: OSLog.default, type: .info, flow.debugDescription)
     }
     
-    func processFromflow(flow: NEFilterFlow) -> Process? {
-        guard let auditTokenData = flow.sourceAppAuditToken else {
-            return nil
-        }
-        
-        // Convert NSData → audit_token_t
-        var auditToken = auditTokenData.withUnsafeBytes { ptr -> audit_token_t in
-            return ptr.load(as: audit_token_t.self)
-        }
-        return Process.init(&auditToken)
-    }
+//    func processFromflow(flow: NEFilterFlow) -> Process? {
+//        guard let auditTokenData = flow.sourceAppAuditToken else {
+//            return nil
+//        }
+//        
+//        // Convert NSData → audit_token_t
+//        var auditToken = auditTokenData.withUnsafeBytes { ptr -> audit_token_t in
+//            return ptr.load(as: audit_token_t.self)
+//        }
+//        return Process.init(&auditToken)
+//    }
   }
 //https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions
 
