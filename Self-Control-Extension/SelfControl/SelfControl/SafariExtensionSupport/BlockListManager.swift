@@ -1,5 +1,8 @@
 import Foundation
 import SafariServices
+import os.log
+
+typealias SafariConst = SafariExtensionConstants
 
 struct BlockRule: Codable {
     struct Trigger: Codable {
@@ -61,58 +64,15 @@ enum BlockListManager {
             // Ensure folder exists before writing
             try fileManager.createDirectory(at: containerURL, withIntermediateDirectories: true, attributes: nil)
 
-            let fileURL = containerURL.appendingPathComponent("blockerList.json")
+            let fileURL = containerURL.appendingPathComponent(SafariConst.SAFARI_BLOCKER_FILE_NAME)
             try data.write(to: fileURL, options: .atomic)
 
             print("✅ Wrote blockerList.json to: \(fileURL.path)")
-//            SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: extensionIdentifier) { (state, error) in
-//                guard let state = state, error == nil else {
-//                    // Insert code to inform the user that something went wrong.
-//                    return
-//                }
-//                if let error = error as NSError? {
-//                    print("⚠️ State check error for \(extensionIdentifier): \(error.domain) code \(error.code) – \(error.localizedDescription)")
-//                    print("ℹ️ Tips: Ensure the content blocker extension bundle identifier matches exactly, the extension is installed and enabled in Safari, and the app/extension share the same App Group: \(appGroup)")
-//                } else {
-//                    print("🔍 Current state of \(extensionIdentifier):", state.description ?? "Unknown")
-//                    if state.isEnabled == false {
-//                        print("⚠️ Extension not enabled in Safari. Please enable it in Settings → Safari → Extensions.")
-//                    }
-//                }
-//
-//                DispatchQueue.main.async {
-//                    if #available(macOS 13, *) {
-////                        webView.evaluateJavaScript("show(\(state.isEnabled), true)")
-//                    } else {
-////                        webView.evaluateJavaScript("show(\(state.isEnabled), false)")
-//                    }
-//                }
-//            }
 
-            // Query current state for diagnostics; proceed to reload regardless.
-//            SFContentBlockerManager.getStateOfContentBlocker(withIdentifier: extensionIdentifier) { state, error in
-//                if let error = error as NSError? {
-//                    print("⚠️ State check error for \(extensionIdentifier): \(error.domain) code \(error.code) – \(error.localizedDescription)")
-//                    print("ℹ️ Tips: Ensure the content blocker extension bundle identifier matches exactly, the extension is installed and enabled in Safari, and the app/extension share the same App Group: \(appGroup)")
-//                } else {
-//                    print("🔍 Current state of \(extensionIdentifier):", state?.description ?? "Unknown")
-//                    if state?.isEnabled == false {
-//                        print("⚠️ Extension not enabled in Safari. Please enable it in Settings → Safari → Extensions.")
-//                    }
-//                }
-//
-//                // Attempt reload regardless; this often yields a clearer error if the identifier is wrong.
-//                SFContentBlockerManager.reloadContentBlocker(withIdentifier: extensionIdentifier) { error in
-//                    if let error = error as NSError? {
-//                        print("❌ Reload error for \(extensionIdentifier): \(error.domain) code \(error.code) – \(error.localizedDescription)")
-//                        print("ℹ️ If this persists: verify the extension target’s bundle ID, that the extension is enabled, and that it has access to the shared container.")
-//                    } else {
-//                        print("✅ Safari Content Blocker reloaded successfully.")
-//                    }
-//                }
-//            }
 //            if SafariExtensionManager.shared.isExtensionReady { //If Safari is ready mark it in the Network extension
-                SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: "com.application.SelfControl.corebits.SelfControl-Safari-Extension") { state, error in
+            SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: SafariConst.identifier) { state, error in
+                    os_log("[SC] 🔍 Safari Extension State Error: %{public}@", error?.localizedDescription ?? "")
+                    os_log("[SC] 🔍 Safari Extension State: %{public}d", state?.isEnabled ?? false)
                     print("Safari Extension State Error :\(error, default: "nil")")
                     print("Safari Extension State :\(state?.isEnabled ?? false)")
                     Task { @MainActor in
@@ -125,11 +85,12 @@ enum BlockListManager {
                 }
 //            }
             SFSafariApplication.dispatchMessage(
-                withName: "reloadList",
-                toExtensionWithIdentifier: "com.application.SelfControl.corebits.SelfControl-Safari-Extension",
+                withName: SafariConst.MessagesName.reloadList.rawValue,
+                toExtensionWithIdentifier: SafariConst.identifier,
                 userInfo: ["changed": true]) { error in
+                    os_log("[SC] 🔍 Safari Message toExtensionWithIdentifier: reloadList: %{public}@", error?.localizedDescription ?? "")
                     print("Safari Message toExtensionWithIdentifier: reloadList:", error)
-                    if error != nil {
+                    if error == nil {
                         Task { @MainActor in
                             if NetworkExtensionState.shared.isEnabled == true && NetworkExtensionState.shared.isSafariExtensionEnabled == false { //possibly extension is ready now
                                 _ = IPCConnection.shared.sendMessageToSetActiveBrowserExtension(ActiveBrowserExtensios.safari.rawValue, state: true)
@@ -142,5 +103,26 @@ enum BlockListManager {
         } catch {
             print("❌  Safari Error writing blocker file:", error)
         }
+    }
+    
+    static func updateExtensionState() {
+        Task { @MainActor in
+            if NetworkExtensionState.shared.isEnabled == true {
+                _ = IPCConnection.shared.sendMessageToSetActiveBrowserExtension(ActiveBrowserExtensios.safari.rawValue, state: SafariExtensionManager.shared.isExtensionReady)
+            }
+        }
+    }
+    
+    static func activateSafariBlocking() {
+        updateExtensionState()
+        SafariExtensionManager.shared.enableExtension()
+        os_log("Safari Message toExtensionWithIdentifier activateSafariBlocking called:")
+    }
+    
+    static func deactivateSafariBlocking() {
+        updateExtensionState()
+        SafariExtensionManager.shared.disableExtension()
+        _ = IPCConnection.shared.sendMessageToSetActiveBrowserExtension(ActiveBrowserExtensios.safari.rawValue, state: SafariExtensionManager.shared.isExtensionReady)
+        os_log("Safari Message toExtensionWithIdentifier deactivateSafariBlocking called:")
     }
 }

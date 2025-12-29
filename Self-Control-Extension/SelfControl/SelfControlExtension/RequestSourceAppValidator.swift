@@ -18,7 +18,7 @@ struct RequestSourceAppValidator {
         let isChromeExtensionEnabled = IPCConnection.shared.isGoogleChromeEnabled
 
         if let process = process, AllowedProcess.isAllowedProcess(process, isSafariExtensionActive: isSafariExtensionEnabled, isChromeExtensionActive: isChromeExtensionEnabled) {
-            os_log("[SC] 🔍] handleNewFlow: allowing as it is in allowed list.")
+//            os_log("[SC] 🔍] handleNewFlow: allowing as it is in allowed list.")
             return true
         }
         return false

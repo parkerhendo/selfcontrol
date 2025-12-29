@@ -49,15 +49,9 @@ function ruleForDomain(domain) {
 }
 
 async function fetchData() {
-  // try {
-  //   const response = await fetch("http://127.0.0.1:8080/");
-  //   const data = await response.json();
-  //   console.log("Swift app data:", data);
-  // } catch (err) {
-  //   console.error("Error fetching from Swift app:", err);
-  // }
+
   try {
-    const response = await fetch("http://127.0.0.1:8080/");
+    const response = await fetch("http://127.0.0.1:8532/chrome");
     const data = await response.json();
     console.log("Array from Swift:", data);
 
@@ -80,7 +74,7 @@ blockedDomains.forEach(domain => {
 });
   return blockedDomains;
   } catch (err) {
-    console.error("Fetch failed:", err);
+    console.log("Fetch failed:", err);
     return [];
   }
 }

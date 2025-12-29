@@ -14,6 +14,7 @@ final class NetworkExtensionState: ObservableObject {
     @Published var isEnabled: Bool
     @Published var isSafariExtensionEnabled: Bool
     @Published var isChromeExtensionEnabled: Bool
+//    @Published var isActive: Bool = false
 
     // Singleton instance, isolated to the MainActor
     static let shared: NetworkExtensionState = NetworkExtensionState(isEnabled: false)

@@ -21,6 +21,7 @@ enum ActiveBrowserExtensios: String {
     func setBlockedIPAddresses(_ ips: [String])
     // Use Objective-C bridgeable type for XPC surface
     func setActiveBrowserExtension(_ extensionTypeRawValue: String, state: Bool)
+    func setEnableService(_ enable: Bool)
 }
 
 /// Provider --> App IPC to Be implememted in the app
@@ -50,7 +51,8 @@ class IPCConnection: NSObject {
     private(set) var isSafariExtensionEnable: Bool = false
     private(set) var isGoogleChromeEnabled: Bool = false
     // Published extension state for UI/observers
-    
+    private(set) var isServiceActive: Bool = false
+
   // MARK: Methods
   
   /**
@@ -174,7 +176,7 @@ extension IPCConnection: NSXPCListenerDelegate {
     func enableURLBlocking(_ urls: [String]) {
         os_log("[SC] 🔍] Enabling URL blocking")
         guard let providerProxy = currentConnection?.remoteObjectProxyWithErrorHandler({ registerError in
-          os_log("[SC] 🔍] Failed to register with the provider: %@", registerError.localizedDescription)
+          os_log("[SC] 🔍] Failed to register with the provider: %{public}@", registerError.localizedDescription)
         }) as? AppToExtensionExtension else {
             os_log("[SC] 🔍] Failed to create a remote object proxy for the provider")
             return
@@ -185,7 +187,7 @@ extension IPCConnection: NSXPCListenerDelegate {
     func enableIPAddressesBlocking(_ urls: [String]) {
         os_log("[SC] 🔍] Enabling URL blocking")
         guard let providerProxy = currentConnection?.remoteObjectProxyWithErrorHandler({ registerError in
-          os_log("[SC] 🔍] Failed to register with the provider: %@", registerError.localizedDescription)
+          os_log("[SC] 🔍] Failed to register with the provider: %{public}@", registerError.localizedDescription)
         }) as? AppToExtensionExtension else {
             os_log("[SC] 🔍] Failed to create a remote object proxy for the provider")
             return
@@ -196,7 +198,7 @@ extension IPCConnection: NSXPCListenerDelegate {
     func sendMessageToSetActiveBrowserExtension(_ extensionTypeRawValue: String, state: Bool) -> Bool {
         os_log("[SC] 🔍] sendMessageToSetActiveBrowserExtension:\(extensionTypeRawValue), state:\(state)")
         guard let providerProxy = currentConnection?.remoteObjectProxyWithErrorHandler({ registerError in
-          os_log("[SC] 🔍] sendMessageToSetActiveBrowserExtension: %@", registerError.localizedDescription)
+          os_log("[SC] 🔍] sendMessageToSetActiveBrowserExtension: %{public}@", registerError.localizedDescription)
         }) as? AppToExtensionExtension else {
             os_log("[SC] 🔍] Failed to create a remote object proxy for the provider")
             return false
@@ -204,10 +206,25 @@ extension IPCConnection: NSXPCListenerDelegate {
         providerProxy.setActiveBrowserExtension(extensionTypeRawValue, state: state)
         return true
     }
+    
+    func sendMessageToEnableNetworkExtension(_enable: Bool) -> Bool {
+        os_log("[SC] 🔍] sendMessageToEnableNetworkExtension state:\(_enable)")
+        guard let providerProxy = currentConnection?.remoteObjectProxyWithErrorHandler({ registerError in
+          os_log("[SC] 🔍] sendMessageToEnableNetworkExtension: %{public}@", registerError.localizedDescription)
+        }) as? AppToExtensionExtension else {
+            os_log("[SC] 🔍] Failed to create a remote object proxy for the provider")
+            return false
+        }
+        providerProxy.setEnableService(_enable)
+        return true
+    }
 }
 
 
 extension IPCConnection: AppToExtensionExtension {
+    func setEnableService(_ enable: Bool) {
+        self.isServiceActive = enable
+    }
     
     func setBlockedIPAddresses(_ ips: [String]) {
         blockedIPAddresses = Set(ips)

@@ -19,59 +19,86 @@ struct ContentView: View {
   var body: some View {
     VStack(spacing: 20) {
       // Status indicator with image and text.
-        Button {
-            viewModel.activateExtension()
-        } label: {
-            Text("Install and Start Block")
+        HStack {
+            statusView
+            Button {
+                viewModel.activateExtension()
+            } label: {
+                Text("Install and Start Block")
+            }
+            // Start/Stop buttons.
+            HStack {
+              if viewModel.status == .stopped {
+                Button("Start") {
+                  viewModel.startFilter()
+                }
+              }
+              if viewModel.status == .running {
+                Button("Stop") {
+                  viewModel.stopFilter()
+                }
+              }
+            }
         }
         HStack {
             Spacer()
-            Slider(value: $viewModel.delay, in: 1...60) {
+            Slider(value: $viewModel.delay, in: 1...30) {
                 Text("Time: \(viewModel.delay, specifier: "%.1f") Minutes")
             }
             Spacer()
         }
-      statusView
+      
+        Button {
+            if viewModel.isActiveBlocking == true {
+                viewModel.deactivateNetworkBlocking()
+                viewModel.cancelTimer()
+            } else {
+                if viewModel.startTimerWithSelectedDelay() == false {
+                    return
+                }
+                viewModel.activateNetworkBlocking()
+            }
+        } label: {
+            Text(viewModel.isActiveBlocking ? "Deactivate Block" : "Activate Block")
+        }
+
       // Show a progress indicator when in the indeterminate state.
       if viewModel.status == .indeterminate {
         ProgressView()
           .progressViewStyle(CircularProgressViewStyle())
       }
-      
-      // Start/Stop buttons.
-      HStack {
-        if viewModel.status == .stopped {
-          Button("Start") {
-            viewModel.startFilter()
-              
-          }
-        }
-        if viewModel.status == .running {
-          Button("Stop") {
-            viewModel.stopFilter()
-          }
-        }
-      }
-        HStack {
-            TextField("Enter Url to test block", text: $newDomain)
-            Button("Test Url Blocking") {
-                viewModel.checkUrlRequest(url: newDomain)
-            }
-        }
 //        Button {
 //            viewModel.setBlockedUrls(urls: ProxyPreferences.getBlockedDomains())
 //        } label: {
 //            Text("Enable Url Blocking")
 //        }
-        SafariExtensionView()
+        HStack {
+            Button("Edit Blocklist") {
+                openWindow(id: "preferences")
+            }
+            Spacer()
+        }
         SafariExtensionWebView()
             .frame(minHeight: 100)
+        
+          HStack {
+              TextField("Enter Url to test block", text: $newDomain)
+              Button("Test Url Blocking") {
+                  viewModel.checkUrlRequest(url: newDomain)
+              }
+          }
+        Spacer()
     }
     .padding()
     .frame(minWidth: 150, minHeight: 150)
     .onDisappear {
 //        let urls = ProxyPreferences.getBlockedDomains()
         
+    }
+    .onAppear {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            AppMover.moveIfNeeded()
+        }
     }
   }
 }
@@ -83,10 +110,6 @@ private extension ContentView {
         .clipShape(Circle())
         .frame(width: 20, height: 20)
       Text("Status: \(viewModel.status.text)")
-        Button("Edit Blocklist") {
-            openWindow(id: "preferences")
-
-        }
     }
   }
 }
@@ -94,3 +117,4 @@ private extension ContentView {
 #Preview {
   ContentView()
 }
+

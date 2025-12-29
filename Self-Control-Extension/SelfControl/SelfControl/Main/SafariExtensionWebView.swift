@@ -62,7 +62,7 @@ final class WebPageViewModel: NSObject, WKNavigationDelegate, WKScriptMessageHan
         }
     }
     
-    private let extensionIdentifier = "com.application.SelfControl.corebits.SelfControl-Safari-Extension"
+    private let extensionIdentifier = SafariExtensionConstants.identifier
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
 

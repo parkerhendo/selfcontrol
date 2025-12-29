@@ -16,13 +16,18 @@ import SafariServices
 final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionRequestDelegate, ExtensionToApp {
     @Published var status: Status = .stopped
     @State private var domains = ProxyPreferences.getBlockedDomains()
-    private let listner = ChromeExtensionRequestListner()
-    @Published var delay: Double = 0.0
+    private let chromeService = ChromeExtensionRequestListner()
+    @Published var delay: Double = 5.0
     var blockedIPAddressed: [String] = []
     private var cancellables = Set<AnyCancellable>()
-    
+    @Published var isActiveBlocking: Bool = false
+
     // Safari extension identifier used to query state
     private let safariExtensionIdentifier = "com.application.SelfControl.corebits.SelfControl-Safari-Extension"
+    
+    // Timer to manage delayed actions based on `delay` (in minutes)
+    private var blockTimer: Timer?
+    private var timerFireDate: Date?
     
   // Date formatter used to log entries
   lazy var dateFormatter: DateFormatter = {
@@ -58,11 +63,15 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     override init() {
         super.init()
         onInit()
+        SafariExtensionManager.shared.onChange = {
+            print("SafariExtensionManager.shared.onChange++")
+        }
+        SafariExtensionManager.shared.resetExtensionState()
         self.extensionIdentifier = extensionBundle.bundleIdentifier
-        self.listner.blockeddomainFetcher = {
+        self.chromeService.blockeddomainFetcher = {
             return ProxyPreferences.getBlockedDomains()
         }
-        self.listner.startListening()
+        self.chromeService.startListening()
         
         // Print status whenever it changes
         $status
@@ -80,6 +89,8 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     if let observer = observer {
       NotificationCenter.default.removeObserver(observer, name: .NEFilterConfigurationDidChange, object: NEFilterManager.shared())
     }
+    blockTimer?.invalidate()
+    blockTimer = nil
   }
   
   func onInit() {
@@ -108,7 +119,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
       let isNEEnabled = NEFilterManager.shared().isEnabled
       Task { @MainActor in
           NetworkExtensionState.shared.isEnabled = isNEEnabled
-          if isNEEnabled == true { //Reset 
+          if isNEEnabled == true { //Reset
               NetworkExtensionState.shared.isSafariExtensionEnabled = false
               NetworkExtensionState.shared.isChromeExtensionEnabled = false
           }
@@ -132,7 +143,7 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     }
     
     private func refreshBlockedIPs() {
-        self.listner.blockeddomainFetcher = {
+        self.chromeService.blockeddomainFetcher = {
             return ProxyPreferences.getBlockedDomains()
         }
     }
@@ -379,6 +390,52 @@ final class FilterViewModel: NSObject, ObservableObject, OSSystemExtensionReques
     func didSetUrls() {
         print("didSetUrls+++++")
         // URLs updated; refresh extension state in case Safari side changed.
+    }
+    
+    func activateNetworkBlocking() {
+        print("activateNetworkBlocking+++++")
+       _ = IPCConnection.shared.sendMessageToEnableNetworkExtension(_enable: true)
+        BlockListManager.activateSafariBlocking()
+        chromeService.activateSafariBlocking()
+    }
+    
+    func deactivateNetworkBlocking() {
+         print("deactivateNetworkBlocking+++++")
+        _ = IPCConnection.shared.sendMessageToEnableNetworkExtension(_enable: false)
+        BlockListManager.deactivateSafariBlocking()
+        chromeService.deactivateSafariBlocking()
+    }
+    
+    // MARK: - Timer management
+    
+    func startTimerWithSelectedDelay() -> Bool {
+        cancelTimer()
+        let seconds = delay * 60.0
+        guard seconds > 30 else {
+            os_log("[SC] 🔍] startTimerWithSelectedDelay called with non-positive delay: %f", seconds)
+            return false
+        }
+        timerFireDate = Date().addingTimeInterval(seconds)
+        os_log("[SC] 🔍] Scheduling timer to fire in %.0f seconds (%.2f minutes)", seconds, delay)
+        blockTimer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            os_log("[SC] 🔍] Timer fired. Deactivating network blocking.")
+            self.deactivateNetworkBlocking()
+            self.cancelTimer()
+        }
+        isActiveBlocking = true
+//        RunLoop.main.add(blockTimer!, forMode: .common)
+        return true
+    }
+    
+    func cancelTimer() {
+        if let fireDate = timerFireDate {
+            os_log("[SC] 🔍] Cancelling timer scheduled for %{public}@", fireDate as NSDate)
+        }
+        blockTimer?.invalidate()
+        blockTimer = nil
+        timerFireDate = nil
+        self.isActiveBlocking = false
     }
 }
 

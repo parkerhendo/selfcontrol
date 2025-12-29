@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1600"
+   LastUpgradeVersion = "2600"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,9 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "77BA53052D9D5E2A00863476"
-               BuildableName = "com.application.SelfControl.corebits.network.systemextension"
-               BlueprintName = "SelfControlNetworkExtension"
+               BlueprintIdentifier = "8D1107260486CEB800E47090"
+               BuildableName = "SelfControl.app"
+               BlueprintName = "SelfControl"
                ReferencedContainer = "container:SelfControl.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -29,6 +29,18 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
+      <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "CB0EEF5C20FD8CE00024D27B"
+               BuildableName = "SelfControlTests.xctest"
+               BlueprintName = "SelfControlTests"
+               ReferencedContainer = "container:SelfControl.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -44,7 +56,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "77BA52D52D9D5D7700863476"
+            BlueprintIdentifier = "8D1107260486CEB800E47090"
             BuildableName = "SelfControl.app"
             BlueprintName = "SelfControl"
             ReferencedContainer = "container:SelfControl.xcodeproj">
@@ -57,15 +69,16 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <MacroExpansion>
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "77BA53052D9D5E2A00863476"
-            BuildableName = "com.application.SelfControl.corebits.network.systemextension"
-            BlueprintName = "SelfControlNetworkExtension"
+            BlueprintIdentifier = "8D1107260486CEB800E47090"
+            BuildableName = "SelfControl.app"
+            BlueprintName = "SelfControl"
             ReferencedContainer = "container:SelfControl.xcodeproj">
          </BuildableReference>
-      </MacroExpansion>
+      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

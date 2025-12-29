@@ -22,11 +22,11 @@ class FilterDataProvider: NEFilterDataProvider {
 
     override func startFilter(completionHandler: @escaping (Error?) -> Void) {
         os_log("[SC] 🔍] FilterDataProvider: Starting filter", log: OSLog.default, type: .info)
-        os_log("[SC] 🔍] captrued Domains: %{public}@", log: OSLog.default, type: .error, ExtensionsPreferencesManager().blockedDomains)
-//        os_log("[SC] 🔍] captrued blockedUrls: %{public}@", log: OSLog.default, type: .error, IPCConnection.shared.blockedUrls)
+        let blockedHosts = IPCConnection.shared.blockedUrls
+
+        os_log("[SC] 🔍] Bloked blockedUrls: %{public}@", log: OSLog.default, type: .error, blockedHosts)
 
         // Filter incoming TCP connections on port 8888
-        let blockedHosts = IPCConnection.shared.blockedUrls
 
 //        let filterRules = blockedHosts.map { address -> NEFilterRule in
 //  //          let localNetwork = NWHostEndpoint(hostname: address as! String, port: FilterDataProvider.localPort)
@@ -193,6 +193,10 @@ class FilterDataProvider: NEFilterDataProvider {
           readBytesStartOffset offset: Int,
           readBytes data: Data
     ) -> NEFilterDataVerdict {
+
+        guard IPCConnection.shared.isServiceActive else { //Service is inactive
+            return .allow()
+        }
         
         guard IPCConnection.shared.blockedUrls.count > 0 else { //No signinficant urls to block
             return .allow()
@@ -249,9 +253,11 @@ class FilterDataProvider: NEFilterDataProvider {
 
     // Called for each new flow.
     override func handleNewFlow(_ flow: NEFilterFlow) -> NEFilterNewFlowVerdict {
-
+        guard IPCConnection.shared.isServiceActive else {
+            return .allow()
+        }
         // Provide peek sizes required by this overload
-      os_log("[SC] 🔍] FilterDataProvider: handleNewFlow invoked", log: OSLog.default, type: .debug)
+//      os_log("[SC] 🔍] FilterDataProvider: handleNewFlow invoked", log: OSLog.default, type: .debug)
         guard IPCConnection.shared.blockedUrls.count > 0 else { //No signinficant urls to block
             return .allow()
         }

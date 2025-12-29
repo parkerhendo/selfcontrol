@@ -9,6 +9,8 @@ import os.log
 import Foundation
 
 public enum ContentBlockerExtensionRequestHandler {
+    typealias BlockerFile = SafariExtensionConstants.SafariBlockerFile
+
     /// Handles content blocking extension request for rules.
     ///
     /// This method loads the content blocker rules JSON file from the shared container
@@ -33,7 +35,7 @@ public enum ContentBlockerExtensionRequestHandler {
         }
 
         // Construct the path to the shared blocker list file
-        let sharedFileURL = appGroupURL.appendingPathComponent(Constants.SAFARI_BLOCKER_FILE_NAME)
+        let sharedFileURL = appGroupURL.appendingPathComponent(BlockerFile.fullName)
 
         // Determine which blocker list file to use
         var blockerListFileURL = sharedFileURL
@@ -42,7 +44,7 @@ public enum ContentBlockerExtensionRequestHandler {
 
             // Fall back to the default blocker list included in the bundle
             guard
-                let defaultURL = Bundle.main.url(forResource: "blockerList", withExtension: "json")
+                let defaultURL = Bundle.main.url(forResource: BlockerFile.name, withExtension: BlockerFile.ext)
             else {
                 context.cancelRequest(
                     withError: createError(
@@ -101,9 +103,8 @@ public enum ContentBlockerExtensionRequestHandler {
         else {
             return nil
         }
-        
         // Construct the path to the shared blocker list file
-        let sharedFileURL = appGroupURL.appendingPathComponent(Constants.SAFARI_BLOCKER_FILE_NAME)
+        let sharedFileURL = appGroupURL.appendingPathComponent(BlockerFile.fullName)
         
         // Determine which blocker list file to use
         var blockerListFileURL = sharedFileURL
@@ -112,7 +113,7 @@ public enum ContentBlockerExtensionRequestHandler {
             
             // Fall back to the default blocker list included in the bundle
             guard
-                let defaultURL = Bundle.main.url(forResource: "blockerList", withExtension: "json")
+                let defaultURL = Bundle.main.url(forResource: BlockerFile.name, withExtension: BlockerFile.ext)
             else {
                 return nil
             }
