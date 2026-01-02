@@ -5,8 +5,9 @@ minVersion = '10.10'
 platform :osx, minVersion
 
 # cocoapods-prune-localizations doesn't appear to auto-detect pods properly, so using a manual list
-supported_locales = ['Base', 'da', 'de', 'en', 'es', 'fr', 'it', 'ja', 'ko', 'nl', 'pt-BR', 'sv', 'tr', 'zh-Hans']
-plugin 'cocoapods-prune-localizations', { :localizations => supported_locales }
+# Commented out for nix-shell compatibility - uncomment if plugin is installed
+# supported_locales = ['Base', 'da', 'de', 'en', 'es', 'fr', 'it', 'ja', 'ko', 'nl', 'pt-BR', 'sv', 'tr', 'zh-Hans']
+# plugin 'cocoapods-prune-localizations', { :localizations => supported_locales }
 
 target "SelfControl" do
     use_frameworks! :linkage => :static
