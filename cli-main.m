@@ -107,25 +107,30 @@ int main(int argc, char* argv[]) {
                 NSLog(@"created legacy block end date %@ from %@", blockEndDateArg, @(argv[4]));
             }
             
-            // if we got valid block arguments from the command-line, read in that file
+            // if we got a valid blocklist file from command-line, read from it
             if (pathToBlocklistFile != nil && blockEndDateArg != nil && [blockEndDateArg timeIntervalSinceNow] >= 1) {
                 blockEndDate = blockEndDateArg;
                 NSDictionary* readProperties = [SCBlockFileReaderWriter readBlocklistFromFile: [NSURL fileURLWithPath: pathToBlocklistFile]];
-                
+
                 if (readProperties == nil) {
                     NSLog(@"ERROR: Block could not be read from file %@", pathToBlocklistFile);
                     exit(EX_IOERR);
                 }
-                
+
                 blocklist = readProperties[@"Blocklist"];
                 blockAsWhitelist = [readProperties[@"BlockAsWhitelist"] boolValue];
             } else {
-                // if the command-line had nothing from us, we'll try to pull them from defaults
+                // Read blocklist from user defaults
                 blocklist = defaultsDict[@"Blocklist"];
                 blockAsWhitelist = [defaultsDict[@"BlockAsWhitelist"] boolValue];
-                
-                NSTimeInterval blockDurationSecs = MAX([defaultsDict[@"BlockDuration"] intValue] * 60, 0);
-                blockEndDate = [NSDate dateWithTimeIntervalSinceNow: blockDurationSecs];
+
+                // If --enddate was provided (for scheduled blocks), use that; otherwise use BlockDuration
+                if (blockEndDateArg != nil && [blockEndDateArg timeIntervalSinceNow] >= 1) {
+                    blockEndDate = blockEndDateArg;
+                } else {
+                    NSTimeInterval blockDurationSecs = MAX([defaultsDict[@"BlockDuration"] intValue] * 60, 0);
+                    blockEndDate = [NSDate dateWithTimeIntervalSinceNow: blockDurationSecs];
+                }
             }
             
             // read in the other block settings, starting with defaults

@@ -193,6 +193,8 @@
 		CBD2677511ED92F800042CD8 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		CBD4848A19D764440020F949 /* PreferencesGeneralViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = CBD4848819D764440020F949 /* PreferencesGeneralViewController.m */; };
 		CBD4848F19D768C90020F949 /* PreferencesAdvancedViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = CBD4848D19D768C90020F949 /* PreferencesAdvancedViewController.m */; };
+		AAA0000126010101000A0005 /* PreferencesScheduleViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = AAA0000126010101000A0002 /* PreferencesScheduleViewController.m */; };
+		AAA0000126010101000A0006 /* SCScheduleManager.m in Sources */ = {isa = PBXBuildFile; fileRef = AAA0000126010101000A0004 /* SCScheduleManager.m */; };
 		CBDAB4D22651FDB000A1951C /* BlockManager.m in Sources */ = {isa = PBXBuildFile; fileRef = CB25806116C1FDBE0059C99A /* BlockManager.m */; };
 		CBDAB4F72651FDC900A1951C /* AllowlistScraper.m in Sources */ = {isa = PBXBuildFile; fileRef = CB73615F19E4FDA000E0924F /* AllowlistScraper.m */; };
 		CBDB118C2084239D0010397E /* FirstTime.xib in Resources */ = {isa = PBXBuildFile; fileRef = CBDB118E2084239D0010397E /* FirstTime.xib */; };
@@ -1387,6 +1389,10 @@
 		CBD4848819D764440020F949 /* PreferencesGeneralViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PreferencesGeneralViewController.m; sourceTree = "<group>"; };
 		CBD4848C19D768C90020F949 /* PreferencesAdvancedViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PreferencesAdvancedViewController.h; sourceTree = "<group>"; };
 		CBD4848D19D768C90020F949 /* PreferencesAdvancedViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PreferencesAdvancedViewController.m; sourceTree = "<group>"; };
+		AAA0000126010101000A0001 /* PreferencesScheduleViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PreferencesScheduleViewController.h; sourceTree = "<group>"; };
+		AAA0000126010101000A0002 /* PreferencesScheduleViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PreferencesScheduleViewController.m; sourceTree = "<group>"; };
+		AAA0000126010101000A0003 /* SCScheduleManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCScheduleManager.h; sourceTree = "<group>"; };
+		AAA0000126010101000A0004 /* SCScheduleManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCScheduleManager.m; sourceTree = "<group>"; };
 		CBDB114F2084225A0010397E /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		CBDB11502084225A0010397E /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/DomainList.xib; sourceTree = "<group>"; };
 		CBDB11512084225A0010397E /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/TimerWindow.xib; sourceTree = "<group>"; };
@@ -1702,6 +1708,10 @@
 				CBD4848819D764440020F949 /* PreferencesGeneralViewController.m */,
 				CBD4848C19D768C90020F949 /* PreferencesAdvancedViewController.h */,
 				CBD4848D19D768C90020F949 /* PreferencesAdvancedViewController.m */,
+				AAA0000126010101000A0001 /* PreferencesScheduleViewController.h */,
+				AAA0000126010101000A0002 /* PreferencesScheduleViewController.m */,
+				AAA0000126010101000A0003 /* SCScheduleManager.h */,
+				AAA0000126010101000A0004 /* SCScheduleManager.m */,
 				CBB637210F3E296000EBD135 /* DomainListWindowController.h */,
 				CBB637220F3E296000EBD135 /* DomainListWindowController.m */,
 				CBEE50BF0F48C21F00F5DF1C /* TimerWindowController.h */,
@@ -3722,6 +3732,8 @@
 				CBE4401B0F4BE0670062A1FE /* ThunderbirdPreferenceParser.m in Sources */,
 				CBE5C40B0F4D4531003DB900 /* ButtonWithPopupMenu.m in Sources */,
 				CBD4848F19D768C90020F949 /* PreferencesAdvancedViewController.m in Sources */,
+				AAA0000126010101000A0005 /* PreferencesScheduleViewController.m in Sources */,
+				AAA0000126010101000A0006 /* SCScheduleManager.m in Sources */,
 				CB81A9D025B7C269006956F7 /* SCBlockUtilities.m in Sources */,
 				CBB7DEEA0F53313F00ABF3EA /* DomainListWindowController.m in Sources */,
 				CB953114262BC64F000C8309 /* SCDurationSlider.m in Sources */,

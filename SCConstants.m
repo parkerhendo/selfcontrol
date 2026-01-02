@@ -65,7 +65,10 @@ OSStatus const AUTH_CANCELLED_STATUS = -60006;
             @"SuppressRestartFirefoxWarning": @NO,
             @"FirstBlockStarted": @NO,
             
-            @"V4MigrationComplete": @NO
+            @"V4MigrationComplete": @NO,
+
+            // Scheduling feature
+            @"Schedules": @[]
         };
     });
     

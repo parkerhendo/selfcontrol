@@ -24,6 +24,7 @@
 #import "MASPreferencesWindowController.h"
 #import "PreferencesGeneralViewController.h"
 #import "PreferencesAdvancedViewController.h"
+#import "PreferencesScheduleViewController.h"
 #import "SCTimeIntervalFormatter.h"
 #import <LetsMove/PFMoveApplication.h>
 #import "SCSettings.h"
@@ -320,9 +321,10 @@
 	if (preferencesWindowController_ == nil) {
 		NSViewController* generalViewController = [[PreferencesGeneralViewController alloc] init];
 		NSViewController* advancedViewController = [[PreferencesAdvancedViewController alloc] init];
+		NSViewController* scheduleViewController = [[PreferencesScheduleViewController alloc] init];
 		NSString* title = NSLocalizedString(@"Preferences", @"Common title for Preferences window");
 
-		preferencesWindowController_ = [[MASPreferencesWindowController alloc] initWithViewControllers: @[generalViewController, advancedViewController] title: title];
+		preferencesWindowController_ = [[MASPreferencesWindowController alloc] initWithViewControllers: @[generalViewController, scheduleViewController, advancedViewController] title: title];
 	}
 	[preferencesWindowController_ showWindow: nil];
 }
